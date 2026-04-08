@@ -79,7 +79,7 @@
 
         /* 控制面板折疊動畫 */
         #controlPanel {
-            max-height: 600px; /* 稍微加大以適應手機直向排版 */
+            max-height: 1200px; /* 修正：大幅放寬高度，避免手機直向排版時按鈕被裁切 */
             opacity: 1;
             transition: all 0.4s ease;
             overflow: hidden;
@@ -182,7 +182,8 @@
     </div>
 
     <!-- 底部控制區 -->
-    <footer class="flex-shrink-0 w-full px-4 pb-8 md:pb-6 flex flex-col items-center relative min-h-[60px]">
+    <!-- 修正：加大了底部的 padding-bottom (pb-10) 確保內容可以完整滾動出來，不被螢幕邊緣遮擋 -->
+    <footer class="flex-shrink-0 w-full px-4 pb-12 md:pb-8 flex flex-col items-center relative min-h-[60px]">
         
         <!-- 教師設定面板 (擴展為四區塊) -->
         <div id="controlPanel" class="w-full max-w-6xl bg-slate-800 rounded-2xl border border-slate-600 p-4 shadow-xl">
@@ -237,7 +238,8 @@
                     <div class="bg-slate-700/50 p-2.5 rounded-xl border border-slate-600/50 flex flex-col gap-2">
                         <div class="flex justify-between items-center">
                             <span class="text-sm font-bold text-slate-200">🎵 背景音樂</span>
-                            <button id="bgmToggleBtn" onclick="toggleBGM()" class="btn-toggle bg-slate-600 text-slate-300 border border-slate-500 text-xs px-3 py-1 rounded-md font-bold transition-colors">已關閉</button>
+                            <!-- 修正：預設為已開啟 -->
+                            <button id="bgmToggleBtn" onclick="toggleBGM()" class="btn-toggle active border text-xs px-3 py-1 rounded-md font-bold transition-colors">已開啟</button>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-[10px] text-slate-400">音量</span>
@@ -284,14 +286,32 @@
     <script>
         // --- YouTube BGM 系統 ---
         let ytPlayer = null;
-        let bgmEnabled = false;
+        let bgmEnabled = true; // 修正：預設改為開啟
+        let firstInteractionDone = false;
         
         function onYouTubeIframeAPIReady() {
             ytPlayer = new YT.Player('player', {
                 height: '1', width: '1', videoId: 'QMHMBX4KHp0',
-                playerVars: { 'autoplay': 0, 'controls': 0, 'loop': 1, 'playlist': 'QMHMBX4KHp0' }
+                playerVars: { 'autoplay': 1, 'controls': 0, 'loop': 1, 'playlist': 'QMHMBX4KHp0' },
+                events: {
+                    'onReady': function(event) {
+                        // 準備好時嘗試播放 (但多數瀏覽器會擋住自動播放)
+                        if(bgmEnabled) {
+                            ytPlayer.setVolume(document.getElementById('bgmSlider').value);
+                        }
+                    }
+                }
             });
         }
+
+        // 監聽畫面上任何首次點擊，突破瀏覽器的自動播放限制
+        document.body.addEventListener('click', function() {
+            if (!firstInteractionDone && bgmEnabled && ytPlayer && typeof ytPlayer.playVideo === 'function') {
+                ytPlayer.setVolume(document.getElementById('bgmSlider').value);
+                ytPlayer.playVideo();
+                firstInteractionDone = true;
+            }
+        });
 
         function toggleBGM() {
             bgmEnabled = !bgmEnabled;
