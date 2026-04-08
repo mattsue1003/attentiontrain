@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>團體注意力訓練營</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+            color: white;
+            overflow: hidden; 
+            height: 100dvh; 
+            display: flex;
+            flex-direction: column;
+            touch-action: manipulation;
+        }
+
+        /* 頂部標題動畫縮放 */
+        #mainTitle {
+            transition: all 0.4s ease;
+            max-height: 50px;
+            opacity: 1;
+        }
+        #mainTitle.title-hidden {
+            max-height: 0;
+            opacity: 0;
+            margin-bottom: 0 !important;
+            overflow: hidden;
+        }
+
+        /* 規則提示條 */
+        .rule-banner {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+            line-height: 1.4;
+        }
+
+        /* 中央展示舞台 */
+        #stage {
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7);
+        }
+
+        /* 呈現的物件樣式 (自動適應容器，保證不裁切) */
+        .display-item {
+            font-size: min(65vw, 45vh); 
+            font-weight: 900;
+            text-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+        }
+
+        .shape-svg {
+            width: min(60vw, 45vh);
+            height: min(60vw, 45vh);
+            filter: drop-shadow(0 20px 40px rgba(0,0,0,0.6));
+        }
+
+        /* 出現時的彈跳動畫 */
+        .pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.2); opacity: 0; filter: blur(10px); }
+            70% { transform: scale(1.1); opacity: 1; filter: blur(0px); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 控制面板折疊動畫 */
+        #controlPanel {
+            max-height: 500px;
+            opacity: 1;
+            transition: all 0.4s ease;
+            overflow: hidden;
+        }
+        #controlPanel.panel-hidden {
+            max-height: 0;
+            opacity: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin: 0 !important;
+            border-width: 0 !important;
+        }
+
+        /* 遊戲進行中按鈕浮現 */
+        #playingControls {
+            transition: all 0.3s ease;
+        }
+        #playingControls.play-btn-visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, 0) scale(1);
+        }
+
+        .btn-mode {
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .btn-mode.active {
+            background-color: #3b82f6;
+            border-color: #93c5fd;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-toggle.active {
+            background-color: #10b981; /* emerald-500 */
+            color: white;
+            border-color: #34d399;
+        }
+
+        /* 燈號動畫 */
+        .light-on {
+            background-color: #22d3ee !important; 
+            box-shadow: 0 0 20px 5px rgba(34, 211, 238, 0.7);
+            transform: scale(1.3);
+        }
+
+        /* 滑桿客製化 */
+        input[type="range"] {
+            accent-color: #3b82f6;
+        }
+
+        #timerDisplay {
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+
+    <!-- YouTube 背景音樂隱藏播放器 -->
+    <div id="ytPlayerContainer" class="absolute w-1 h-1 opacity-0 pointer-events-none">
+        <div id="player"></div>
+    </div>
+
+    <!-- 頂部區塊 (遊戲開始時標題會收起) -->
+    <header class="flex-shrink-0 w-full flex flex-col items-center px-4 pt-3 pb-2 z-10 relative">
+        <h1 id="mainTitle" class="text-xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-2">團體注意力訓練營</h1>
+        <div id="ruleBanner" class="rule-banner px-6 md:px-10 py-2.5 md:py-3 rounded-full text-sm md:text-xl font-bold text-white text-center flex items-center justify-center tracking-wide shadow-lg border border-white/10">
+            <span id="ruleText">請先在下方選擇訓練模式</span>
+        </div>
+        
+        <!-- 倒數計時器 (遊戲開始時顯示) -->
+        <div id="timerDisplay" class="absolute top-4 right-4 md:right-8 bg-slate-800/80 border border-slate-600 px-4 py-2 rounded-xl text-xl md:text-2xl font-mono text-emerald-400 font-bold opacity-0 pointer-events-none shadow-lg backdrop-blur-sm">
+            00:00
+        </div>
+    </header>
+
+    <!-- 中央展示舞台 -->
+    <main class="flex-1 w-full px-4 md:px-8 flex flex-col min-h-0 items-center justify-center transition-all duration-500">
+        <div id="stage" class="w-full h-full max-w-6xl bg-[#1e293b] rounded-3xl border-4 border-slate-700 flex items-center justify-center overflow-hidden relative">
+            
+            <!-- 答案揭曉浮水印 -->
+            <div id="answerBadge" class="absolute top-8 px-8 py-3 rounded-full text-xl md:text-3xl font-black text-white shadow-2xl transition-all duration-300 z-40 opacity-0 transform -translate-y-4 border-2 border-white/20 tracking-widest pointer-events-none">
+            </div>
+
+            <div id="displayArea" class="display-item text-slate-500 pop-in">
+                <span class="text-3xl md:text-5xl font-bold">準備開始</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- 獨立的燈號列 -->
+    <div id="lightContainer" class="flex-shrink-0 w-full flex justify-center items-center gap-3 md:gap-5 h-10 md:h-12 my-1">
+        <!-- 燈號會由 JavaScript 動態產生 -->
+    </div>
+
+    <!-- 底部控制區 -->
+    <footer class="flex-shrink-0 w-full px-4 pb-4 md:pb-6 flex flex-col items-center relative min-h-[60px]">
+        
+        <!-- 教師設定面板 (擴展為四區塊) -->
+        <div id="controlPanel" class="w-full max-w-6xl bg-slate-800 rounded-2xl border border-slate-600 p-4 shadow-xl">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 items-start">
+                
+                <!-- 1. 模式選擇 (Col-3) -->
+                <div class="md:col-span-3 flex flex-col gap-2">
+                    <h3 class="text-xs font-bold text-slate-400">1. 選擇模式</h3>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="setMode('number')" id="mode-number" class="btn-mode bg-slate-700 hover:bg-slate-600 rounded-lg py-2.5 font-bold text-sm md:text-base flex items-center justify-center gap-2">
+                            <span>🔢</span> 數字
+                        </button>
+                        <button onclick="setMode('color')" id="mode-color" class="btn-mode bg-slate-700 hover:bg-slate-600 rounded-lg py-2.5 font-bold text-sm md:text-base flex items-center justify-center gap-2">
+                            <span>🎨</span> 顏色
+                        </button>
+                        <button onclick="setMode('shape')" id="mode-shape" class="btn-mode bg-slate-700 hover:bg-slate-600 rounded-lg py-2.5 font-bold text-sm md:text-base flex items-center justify-center gap-2">
+                            <span>🔺</span> 形狀
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. 時間與速度 (Col-3) -->
+                <div class="md:col-span-3 flex flex-col gap-4">
+                    <div class="flex flex-col gap-1.5">
+                        <h3 class="text-xs font-bold text-slate-400">2. 訓練時間</h3>
+                        <select id="durationSelect" class="bg-slate-700 text-white rounded-lg px-3 py-2 text-sm font-bold border border-slate-600 outline-none focus:border-blue-400 w-full">
+                            <option value="60">1 分鐘</option>
+                            <option value="180" selected>3 分鐘</option>
+                            <option value="300">5 分鐘</option>
+                            <option value="0">無限制</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xs font-bold text-slate-400">切換速度 (燈號)</h3>
+                            <span id="speedDisplay" class="font-mono text-blue-400 font-bold text-sm">4.0 秒</span>
+                        </div>
+                        <input type="range" id="speedSlider" min="1.0" max="6.0" step="0.5" value="4.0" class="w-full h-2 bg-slate-900 rounded-lg cursor-pointer" oninput="updateSpeedUI()">
+                        <div class="flex justify-between text-[10px] text-slate-500 font-bold px-1 mt-0.5">
+                            <span>快 (1s)</span>
+                            <span>慢 (6s)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 音訊控制 (Col-4) -->
+                <div class="md:col-span-4 flex flex-col gap-3">
+                    <h3 class="text-xs font-bold text-slate-400">3. 沉浸感控制</h3>
+                    
+                    <!-- 背景音樂 -->
+                    <div class="bg-slate-700/50 p-2.5 rounded-xl border border-slate-600/50 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-bold text-slate-200">🎵 背景音樂</span>
+                            <button id="bgmToggleBtn" onclick="toggleBGM()" class="btn-toggle bg-slate-600 text-slate-300 border border-slate-500 text-xs px-3 py-1 rounded-md font-bold transition-colors">已關閉</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-400">音量</span>
+                            <input type="range" id="bgmSlider" min="0" max="100" value="40" class="flex-1 h-1.5 bg-slate-900 rounded-lg cursor-pointer" oninput="updateAudioVol()">
+                        </div>
+                    </div>
+
+                    <!-- 遊戲音效 -->
+                    <div class="bg-slate-700/50 p-2.5 rounded-xl border border-slate-600/50 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-bold text-slate-200">🔊 遊戲音效</span>
+                            <button id="sfxToggleBtn" onclick="toggleSFX()" class="btn-toggle active border text-xs px-3 py-1 rounded-md font-bold transition-colors">已開啟</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-400">音量</span>
+                            <input type="range" id="sfxSlider" min="0" max="100" value="70" class="flex-1 h-1.5 bg-slate-900 rounded-lg cursor-pointer" oninput="updateAudioVol()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 動作按鈕 (Col-2) -->
+                <div class="md:col-span-2 flex flex-col gap-3 justify-end h-full pt-4 md:pt-0">
+                    <button id="startBtn" onclick="toggleGame()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xl py-4 rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-transform hover:scale-105 active:scale-95 flex flex-col items-center leading-tight">
+                        <span>▶</span>
+                        <span>開始訓練</span>
+                    </button>
+                    <button onclick="toggleFullscreen()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-xs transition-colors border border-slate-600">
+                        ⛶ 全螢幕投影
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲進行中的停止按鈕 -->
+        <div id="playingControls" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 pointer-events-none scale-90 z-50">
+            <button onclick="toggleGame()" class="bg-red-500 hover:bg-red-400 text-white font-bold px-6 py-2 md:px-8 md:py-2.5 rounded-full shadow-[0_5px_15px_rgba(239,68,68,0.5)] flex items-center gap-2 text-base md:text-lg transition-transform hover:scale-105 active:scale-95">
+                ⏹ 停止訓練
+            </button>
+        </div>
+    </footer>
+
+    <!-- YouTube API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        // --- YouTube BGM 系統 ---
+        let ytPlayer = null;
+        let bgmEnabled = false;
+        
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('player', {
+                height: '1', width: '1', videoId: 'QMHMBX4KHp0',
+                playerVars: { 'autoplay': 0, 'controls': 0, 'loop': 1, 'playlist': 'QMHMBX4KHp0' }
+            });
+        }
+
+        function toggleBGM() {
+            bgmEnabled = !bgmEnabled;
+            const btn = document.getElementById('bgmToggleBtn');
+            if (bgmEnabled) {
+                btn.classList.add('active');
+                btn.innerText = "已開啟";
+                if (ytPlayer && ytPlayer.playVideo) {
+                    ytPlayer.setVolume(document.getElementById('bgmSlider').value);
+                    ytPlayer.playVideo();
+                }
+            } else {
+                btn.classList.remove('active');
+                btn.innerText = "已關閉";
+                if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+            }
+        }
+
+        // --- 設定資料 ---
+        const MODES = {
+            number: {
+                ruleText: '<span class="text-yellow-300">奇數</span> 左手十位、右手個位 <span class="opacity-50 mx-2">|</span> <span class="text-yellow-300">偶數</span> 全班拍手',
+                gradient: 'linear-gradient(90deg, #2563eb, #0d9488)',
+                defaultSpeed: 4.0
+            },
+            color: {
+                ruleText: '字與色<span class="text-yellow-300">【不同】</span>拍手 <span class="opacity-50 mx-2">|</span> <span class="text-yellow-300">【相同】</span>唸出顏色',
+                gradient: 'linear-gradient(90deg, #dc2626, #d97706)',
+                defaultSpeed: 3.0
+            },
+            shape: {
+                ruleText: '跟上一個<span class="text-yellow-300">【顏色或形狀】</span>相同 ➔ 拍手',
+                gradient: 'linear-gradient(90deg, #7c3aed, #db2777)',
+                defaultSpeed: 3.0
+            }
+        };
+
+        const COLOR_DATA = [
+            { name: '紅', hex: '#ef4444' }, { name: '藍', hex: '#3b82f6' },
+            { name: '綠', hex: '#22c55e' }, { name: '黃', hex: '#eab308' },
+            { name: '紫', hex: '#a855f7' }, { name: '橘', hex: '#f97316' }
+        ];
+
+        const SHAPES = [
+            { id: 'triangle', svg: '<svg class="shape-svg" viewBox="0 0 100 100"><polygon points="50,10 90,90 10,90" fill="currentColor"/></svg>' },
+            { id: 'circle', svg: '<svg class="shape-svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="currentColor"/></svg>' },
+            { id: 'square', svg: '<svg class="shape-svg" viewBox="0 0 100 100"><rect x="15" y="15" width="70" height="70" rx="10" fill="currentColor"/></svg>' },
+            { id: 'star', svg: '<svg class="shape-svg" viewBox="0 0 100 100"><polygon points="50,5 61,35 95,35 68,54 78,85 50,65 22,85 32,54 5,35 39,35" fill="currentColor"/></svg>' }
+        ];
+
+        // --- 狀態變數 ---
+        let currentMode = null;
+        let isPlaying = false;
+        let speedInterval = 4000; 
+        let timer = null;
+        let answerTimeout = null;
+        
+        let lightInterval = null;
+        let currentLightIndex = 0;
+        let totalLights = 0;
+
+        // 總倒數計時器
+        let gameDuration = 0;
+        let gameTimeRemaining = 0;
+        let gameCountdownTimer = null;
+
+        // 記錄狀態
+        let lastDisplayedNum = null; 
+        let lastColorName = null;
+        let lastShapeId = null;
+        let lastColorHex = null;
+
+        // 音效開關與音量
+        let sfxEnabled = true;
+
+        // --- 音效系統 ---
+        let audioCtx = null;
+        function playSound(type) {
+            if (!sfxEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+                
+                // 讀取設定的音量 (0~100) -> (0.0 ~ 1.0)
+                const vol = document.getElementById('sfxSlider').value / 100;
+
+                if (type === 'tick') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+                    gain.gain.setValueAtTime(0.5 * vol, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                } else if (type === 'light') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(600, now);
+                    gain.gain.setValueAtTime(0.1 * vol, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now); osc.stop(now + 0.05);
+                } else if (type === 'start') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+                    gain.gain.setValueAtTime(0.6 * vol, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                } else if (type === 'stop') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(110, now + 0.4);
+                    gain.gain.setValueAtTime(0.6 * vol, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now); osc.stop(now + 0.4);
+                }
+            } catch(e) { console.log("Audio error", e); }
+        }
+
+        function toggleSFX() {
+            sfxEnabled = !sfxEnabled;
+            const btn = document.getElementById('sfxToggleBtn');
+            if (sfxEnabled) {
+                btn.classList.add('active'); btn.innerText = "已開啟";
+            } else {
+                btn.classList.remove('active'); btn.innerText = "已關閉";
+            }
+        }
+
+        function updateAudioVol() {
+            if (ytPlayer && ytPlayer.setVolume) {
+                ytPlayer.setVolume(document.getElementById('bgmSlider').value);
+            }
+        }
+
+        // --- 初始化 ---
+        function init() { setMode('number'); }
+
+        // --- UI 控制 ---
+        function setMode(mode) {
+            if (isPlaying) return; 
+            currentMode = mode;
+            
+            document.querySelectorAll('.btn-mode').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`mode-${mode}`).classList.add('active');
+
+            const ruleObj = MODES[mode];
+            document.getElementById('ruleText').innerHTML = ruleObj.ruleText;
+            document.getElementById('ruleBanner').style.background = ruleObj.gradient;
+
+            // 載入預設秒數
+            speedInterval = ruleObj.defaultSpeed * 1000;
+            document.getElementById('speedSlider').value = ruleObj.defaultSpeed;
+            document.getElementById('speedDisplay').innerText = ruleObj.defaultSpeed.toFixed(1) + ' 秒';
+
+            const display = document.getElementById('displayArea');
+            display.innerHTML = `<span class="text-3xl md:text-5xl font-bold">準備開始<br><span class="text-blue-400 text-xl md:text-2xl mt-4 block font-normal tracking-wide">(${mode === 'number'?'數字':mode==='color'?'顏色 Stroop':'形狀記憶'} 訓練)</span></span>`;
+            display.style.color = '';
+        }
+
+        function updateSpeedUI() {
+            const val = parseFloat(document.getElementById('speedSlider').value);
+            document.getElementById('speedDisplay').innerText = val.toFixed(1) + ' 秒';
+            speedInterval = val * 1000;
+        }
+
+        function updateTimerUI() {
+            const td = document.getElementById('timerDisplay');
+            if (gameTimeRemaining <= 0) {
+                td.innerText = "無限";
+            } else {
+                const m = Math.floor(gameTimeRemaining / 60);
+                const s = gameTimeRemaining % 60;
+                td.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // --- 遊戲邏輯 ---
+        function toggleGame() {
+            if (!currentMode) { alert("請先選擇一個訓練模式！"); return; }
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            isPlaying = !isPlaying;
+
+            const mainTitle = document.getElementById('mainTitle');
+            const controlPanel = document.getElementById('controlPanel');
+            const playingControls = document.getElementById('playingControls');
+            const display = document.getElementById('displayArea');
+            const lightContainer = document.getElementById('lightContainer');
+            const answerBadge = document.getElementById('answerBadge');
+            const timerDisplay = document.getElementById('timerDisplay');
+
+            if (isPlaying) {
+                playSound('start');
+                lastDisplayedNum = null; lastColorName = null;
+                lastShapeId = null; lastColorHex = null;
+
+                // 處理訓練總時長
+                gameDuration = parseInt(document.getElementById('durationSelect').value);
+                gameTimeRemaining = gameDuration;
+                updateTimerUI();
+                timerDisplay.classList.remove('opacity-0');
+
+                if (gameDuration > 0) {
+                    gameCountdownTimer = setInterval(() => {
+                        gameTimeRemaining--;
+                        updateTimerUI();
+                        if (gameTimeRemaining <= 0) toggleGame(); // 時間到自動停止
+                    }, 1000);
+                }
+
+                // 面板折疊，讓出最大空間給動畫
+                mainTitle.classList.add('title-hidden');
+                controlPanel.classList.add('panel-hidden');
+                playingControls.classList.add('play-btn-visible');
+                
+                generateNext();
+                timer = setInterval(generateNext, speedInterval);
+            } else {
+                playSound('stop');
+                
+                // 恢復面板
+                mainTitle.classList.remove('title-hidden');
+                controlPanel.classList.remove('panel-hidden');
+                playingControls.classList.remove('play-btn-visible');
+                timerDisplay.classList.add('opacity-0');
+                
+                clearInterval(timer);
+                clearInterval(lightInterval);
+                clearInterval(gameCountdownTimer);
+                clearTimeout(answerTimeout);
+                lightContainer.innerHTML = ''; 
+                
+                // 隱藏答案徽章
+                answerBadge.classList.add('opacity-0', '-translate-y-4');
+                answerBadge.classList.remove('opacity-100', 'translate-y-0');
+                
+                display.innerHTML = '<span class="text-3xl md:text-5xl font-bold text-slate-500">訓練已結束</span>';
+                display.style.color = '';
+            }
+        }
+
+        // --- 燈號系統 ---
+        function resetLights() {
+            clearInterval(lightInterval);
+            const container = document.getElementById('lightContainer');
+            totalLights = Math.ceil(speedInterval / 1000);
+            
+            let html = '';
+            for(let i=0; i<totalLights; i++) {
+                html += `<div class="w-4 h-4 md:w-5 md:h-5 rounded-full bg-slate-700 transition-all duration-150 border-2 border-slate-600" id="light-${i}"></div>`;
+            }
+            container.innerHTML = html;
+            currentLightIndex = 0;
+            
+            lightUpNext();
+            if (totalLights > 1) lightInterval = setInterval(lightUpNext, 1000);
+        }
+
+        function lightUpNext() {
+            if (currentLightIndex < totalLights) {
+                const light = document.getElementById(`light-${currentLightIndex}`);
+                if (light) {
+                    light.classList.remove('bg-slate-700', 'border-slate-600');
+                    light.classList.add('light-on');
+                    if (currentLightIndex > 0) playSound('light'); 
+                }
+                currentLightIndex++;
+            }
+        }
+
+        // --- 核心隨機產生器 ---
+        function generateNext() {
+            const display = document.getElementById('displayArea');
+            const answerBadge = document.getElementById('answerBadge');
+            
+            // 重置答案徽章
+            clearTimeout(answerTimeout);
+            answerBadge.classList.add('opacity-0', '-translate-y-4');
+            answerBadge.classList.remove('opacity-100', 'translate-y-0');
+            
+            // 觸發彈跳動畫
+            display.classList.remove('pop-in');
+            void display.offsetWidth; 
+            display.classList.add('pop-in');
+            
+            playSound('tick'); 
+            resetLights();
+
+            let ansText = "";
+            let ansBg = "";
+            let showAnswer = true;
+
+            if (currentMode === 'number') {
+                let num;
+                do { num = Math.floor(Math.random() * 90) + 10; } while (num === lastDisplayedNum);
+                lastDisplayedNum = num;
+                
+                display.innerText = num;
+                const hue = Math.floor(Math.random() * 360);
+                display.style.color = `hsl(${hue}, 90%, 65%)`;
+
+                if (num % 2 === 0) {
+                    ansText = "拍手";
+                    ansBg = "bg-emerald-500/95";
+                } else {
+                    ansText = `左手 ${Math.floor(num/10)}、右手 ${num%10}`;
+                    ansBg = "bg-slate-700/95";
+                }
+
+            } else if (currentMode === 'color') {
+                let textIndex = Math.floor(Math.random() * COLOR_DATA.length);
+                let colorIndex;
+
+                if (Math.random() > 0.5) {
+                    colorIndex = textIndex; 
+                } else {
+                    do { colorIndex = Math.floor(Math.random() * COLOR_DATA.length); } while (colorIndex === textIndex);
+                }
+
+                display.style.color = COLOR_DATA[colorIndex].hex;
+                display.innerHTML = COLOR_DATA[textIndex].name; 
+
+                if (textIndex !== colorIndex) {
+                    ansText = "拍手";
+                    ansBg = "bg-emerald-500/95";
+                } else {
+                    ansText = `唸：${COLOR_DATA[textIndex].name}`;
+                    ansBg = "bg-slate-700/95";
+                }
+
+            } else if (currentMode === 'shape') {
+                let shapeObj, colorObj;
+                let isMatch = false;
+                let isFirst = !lastShapeId;
+
+                if (isFirst) {
+                    // 第一個完全隨機
+                    shapeObj = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                    colorObj = COLOR_DATA[Math.floor(Math.random() * COLOR_DATA.length)];
+                    showAnswer = false; // 第一個不顯示答案
+                } else {
+                    // 精準控制 60% 機率拍手 (相同顏色或相同形狀)
+                    if (Math.random() < 0.60) {
+                        isMatch = true;
+                        if (Math.random() < 0.5) {
+                            // 強制形狀一樣，顏色隨機
+                            shapeObj = SHAPES.find(s => s.id === lastShapeId);
+                            colorObj = COLOR_DATA[Math.floor(Math.random() * COLOR_DATA.length)];
+                        } else {
+                            // 強制顏色一樣，形狀隨機
+                            colorObj = COLOR_DATA.find(c => c.hex === lastColorHex) || COLOR_DATA[0];
+                            shapeObj = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                        }
+                    } else {
+                        // 40% 機率不拍手 (強制顏色與形狀都要不一樣)
+                        isMatch = false;
+                        do {
+                            shapeObj = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                        } while (shapeObj.id === lastShapeId);
+                        
+                        do {
+                            colorObj = COLOR_DATA[Math.floor(Math.random() * COLOR_DATA.length)];
+                        } while (colorObj.hex === lastColorHex);
+                    }
+                }
+
+                lastShapeId = shapeObj.id;
+                lastColorHex = colorObj.hex;
+                display.style.color = colorObj.hex; 
+                display.innerHTML = shapeObj.svg;
+
+                if (!isFirst) {
+                    if (isMatch) {
+                        ansText = "拍手";
+                        ansBg = "bg-emerald-500/95";
+                    } else {
+                        ansText = "不拍手";
+                        ansBg = "bg-slate-700/95";
+                    }
+                }
+            }
+
+            // 統一處理答案揭曉 (最後一秒鐘顯示)
+            if (showAnswer) {
+                let delay = Math.max(0, speedInterval - 1000); 
+                answerTimeout = setTimeout(() => {
+                    answerBadge.innerText = ansText;
+                    answerBadge.className = `absolute top-8 px-8 py-2 md:py-3 rounded-full text-xl md:text-3xl font-black text-white shadow-2xl transition-all duration-300 z-40 transform translate-y-0 opacity-100 ${ansBg} border-2 border-white/20 tracking-widest pointer-events-none`;
+                }, delay);
+            }
+        }
+
+        function toggleFullscreen() {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+            const requestFullScreen = docEl.requestFullscreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const exitFullScreen = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+            if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+                if (requestFullScreen) requestFullScreen.call(docEl);
+            } else {
+                if (exitFullScreen) exitFullScreen.call(doc);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
