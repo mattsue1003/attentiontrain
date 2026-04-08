@@ -6,12 +6,17 @@
     <title>團體注意力訓練營</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        html {
+            scroll-behavior: smooth; /* 確保滾動時有平滑的過渡效果 */
+        }
+        
         body {
             background-color: #0f172a;
             font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
             color: white;
-            overflow: hidden; 
-            height: 100dvh; 
+            /* 修正手機無法滑動的問題：移除 overflow: hidden，改用 min-height 確保能隨內容伸展 */
+            min-height: 100dvh; 
+            overflow-x: hidden; 
             display: flex;
             flex-direction: column;
             touch-action: manipulation;
@@ -74,7 +79,7 @@
 
         /* 控制面板折疊動畫 */
         #controlPanel {
-            max-height: 500px;
+            max-height: 600px; /* 稍微加大以適應手機直向排版 */
             opacity: 1;
             transition: all 0.4s ease;
             overflow: hidden;
@@ -139,6 +144,11 @@
         <div id="player"></div>
     </div>
 
+    <!-- 設計者署名 (固定於右下角，避免干擾畫面) -->
+    <div class="fixed bottom-2 right-3 text-[10px] md:text-xs text-slate-500/60 font-bold pointer-events-none z-0 tracking-widest">
+        設計者 鍾孟修 職能治療師
+    </div>
+
     <!-- 頂部區塊 (遊戲開始時標題會收起) -->
     <header class="flex-shrink-0 w-full flex flex-col items-center px-4 pt-3 pb-2 z-10 relative">
         <h1 id="mainTitle" class="text-xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-2">團體注意力訓練營</h1>
@@ -153,7 +163,7 @@
     </header>
 
     <!-- 中央展示舞台 -->
-    <main class="flex-1 w-full px-4 md:px-8 flex flex-col min-h-0 items-center justify-center transition-all duration-500">
+    <main class="flex-1 w-full px-4 md:px-8 flex flex-col min-h-[40vh] items-center justify-center transition-all duration-500">
         <div id="stage" class="w-full h-full max-w-6xl bg-[#1e293b] rounded-3xl border-4 border-slate-700 flex items-center justify-center overflow-hidden relative">
             
             <!-- 答案揭曉浮水印 -->
@@ -172,7 +182,7 @@
     </div>
 
     <!-- 底部控制區 -->
-    <footer class="flex-shrink-0 w-full px-4 pb-4 md:pb-6 flex flex-col items-center relative min-h-[60px]">
+    <footer class="flex-shrink-0 w-full px-4 pb-8 md:pb-6 flex flex-col items-center relative min-h-[60px]">
         
         <!-- 教師設定面板 (擴展為四區塊) -->
         <div id="controlPanel" class="w-full max-w-6xl bg-slate-800 rounded-2xl border border-slate-600 p-4 shadow-xl">
@@ -262,7 +272,7 @@
         </div>
 
         <!-- 遊戲進行中的停止按鈕 -->
-        <div id="playingControls" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 pointer-events-none scale-90 z-50">
+        <div id="playingControls" class="absolute bottom-6 md:bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 pointer-events-none scale-90 z-50">
             <button onclick="toggleGame()" class="bg-red-500 hover:bg-red-400 text-white font-bold px-6 py-2 md:px-8 md:py-2.5 rounded-full shadow-[0_5px_15px_rgba(239,68,68,0.5)] flex items-center gap-2 text-base md:text-lg transition-transform hover:scale-105 active:scale-95">
                 ⏹ 停止訓練
             </button>
@@ -479,6 +489,9 @@
             const timerDisplay = document.getElementById('timerDisplay');
 
             if (isPlaying) {
+                // 手機版：若老師將螢幕往下捲動按按鈕，開始後平滑回到畫面最頂部確保舞台置中
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
                 playSound('start');
                 lastDisplayedNum = null; lastColorName = null;
                 lastShapeId = null; lastColorHex = null;
